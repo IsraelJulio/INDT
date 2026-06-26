@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  proposta-service:
+    build:
+      context: ./PropostaService
+      dockerfile: src/PropostaService.API/Dockerfile
+    ports:
+      - "5001:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=PropostaDb;Username=postgres;Password=postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  contratacao-service:
+    build:
+      context: ./ContratacaoService
+      dockerfile: src/ContratacaoService.API/Dockerfile
+    ports:
+      - "5002:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=ContratacaoDb;Username=postgres;Password=postgres
+      - PropostaService__BaseUrl=http://proposta-service:8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+      proposta-service:
+        condition: service_started
+
+volumes:
+  pgdata:

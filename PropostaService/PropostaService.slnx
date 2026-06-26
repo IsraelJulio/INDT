@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PropostaService.API/PropostaService.API.csproj" />
+    <Project Path="src/PropostaService.Application/PropostaService.Application.csproj" />
+    <Project Path="src/PropostaService.Domain/PropostaService.Domain.csproj" />
+    <Project Path="src/PropostaService.Infrastructure/PropostaService.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PropostaService.Tests/PropostaService.Tests.csproj" />
+  </Folder>
+</Solution>
