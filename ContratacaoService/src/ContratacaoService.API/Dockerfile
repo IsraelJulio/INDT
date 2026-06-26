@@ -1,7 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /app
 
-COPY ContratacaoService.sln .
+COPY ContratacaoService.slnx .
 COPY src/ContratacaoService.Domain/ContratacaoService.Domain.csproj src/ContratacaoService.Domain/
 COPY src/ContratacaoService.Application/ContratacaoService.Application.csproj src/ContratacaoService.Application/
 COPY src/ContratacaoService.Infrastructure/ContratacaoService.Infrastructure.csproj src/ContratacaoService.Infrastructure/
