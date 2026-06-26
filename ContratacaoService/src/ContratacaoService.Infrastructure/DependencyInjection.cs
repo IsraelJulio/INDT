@@ -1,6 +1,7 @@
 using ContratacaoService.Application.UseCases;
 using ContratacaoService.Domain.Ports;
 using ContratacaoService.Infrastructure.HttpClients;
+using ContratacaoService.Infrastructure.Messaging;
 using ContratacaoService.Infrastructure.Persistence;
 using ContratacaoService.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -17,11 +18,10 @@ public static class DependencyInjection
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
 
         services.AddScoped<IContratacaoRepository, ContratacaoRepository>();
+        services.AddScoped<IPropostaStatusCache, PropostaStatusCacheRepository>();
 
-        services.AddHttpClient<IPropostaClient, PropostaHttpClient>(client =>
-        {
-            client.BaseAddress = new Uri(configuration["PropostaService:BaseUrl"]!);
-        });
+
+        services.AddHostedService<KafkaPropostaStatusConsumer>();
 
         services.AddScoped<ContratarPropostaUseCase>();
 

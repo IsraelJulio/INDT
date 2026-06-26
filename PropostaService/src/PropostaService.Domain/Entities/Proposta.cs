@@ -4,30 +4,24 @@ namespace PropostaService.Domain.Entities;
 
 public class Proposta
 {
-    public Guid Id { get; private set; }
-    public string NomeProponente { get; private set; } = string.Empty;
-    public string Cpf { get; private set; } = string.Empty;
-    public decimal ValorCoberto { get; private set; }
-    public StatusProposta Status { get; private set; }
-    public DateTime CriadoEm { get; private set; }
-
     private Proposta() { }
 
-    public static Proposta Criar(string nomeProponente, string cpf, decimal valorCoberto)
+    public Proposta(string nomeProponente, string cpf, decimal valorCoberto)
     {
-        return new Proposta
-        {
-            Id = Guid.NewGuid(),
-            NomeProponente = nomeProponente,
-            Cpf = cpf,
-            ValorCoberto = valorCoberto,
-            Status = StatusProposta.EmAnalise,
-            CriadoEm = DateTime.UtcNow
-        };
+        Id = Guid.NewGuid();
+        NomeProponente = nomeProponente;
+        Cpf = cpf;
+        ValorCoberto = valorCoberto;
+        Status = StatusProposta.EmAnalise;
+        CriadoEm = DateTime.UtcNow;
     }
 
-    public void AtualizarStatus(StatusProposta novoStatus)
-    {
-        Status = novoStatus;
-    }
+    public Guid Id { get; init; }
+    public string NomeProponente { get; init; } = string.Empty;
+    public string Cpf { get; init; } = string.Empty;
+    public decimal ValorCoberto { get; init; }
+    public StatusProposta Status { get; private set; }
+    public DateTime CriadoEm { get; init; }
+
+    public void AtualizarStatus(StatusProposta novoStatus) => Status = novoStatus;
 }

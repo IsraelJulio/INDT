@@ -1,6 +1,6 @@
 # Plataforma de Seguros — Teste Técnico INDT
 
-Sistema de gerenciamento de propostas de seguro com dois microserviços em **Arquitetura Hexagonal**.
+Sistema de gerenciamento de propostas de seguro com dois microserviços em **Arquitetura Hexagonal** e comunicação assíncrona via **Kafka**.
 
 ## Arquitetura
 
@@ -11,7 +11,7 @@ Sistema de gerenciamento de propostas de seguro com dois microserviços em **Arq
                │                          │
                ▼                          ▼
 ┌──────────────────────┐    ┌──────────────────────────┐
-│   PropostaService    │◄───│   ContratacaoService     │
+│   PropostaService    │    │   ContratacaoService     │
 │   :5001              │    │   :5002                  │
 │                      │    │                          │
 │  ┌─────────────┐     │    │  ┌─────────────┐        │
@@ -21,7 +21,7 @@ Sistema de gerenciamento de propostas de seguro com dois microserviços em **Arq
 │         │            │    │         │               │
 │  ┌──────▼──────┐     │    │  ┌──────▼──────┐       │
 │  │ Application │     │    │  │ Application │       │
-│  │ (Use Cases) │     │    │  │ Use Cases)  │       │
+│  │ (Use Cases) │     │    │  │ (Use Cases) │       │
 │  └──────┬──────┘     │    │  └──────┬──────┘       │
 │         │            │    │         │               │
 │  ┌──────▼──────┐     │    │  ┌──────▼──────┐       │
@@ -33,9 +33,20 @@ Sistema de gerenciamento de propostas de seguro com dois microserviços em **Arq
 │  ┌──────▼──────┐     │    │  ┌──────▼──────┐       │
 │  │ Infra       │     │    │  │ Infra       │       │
 │  │ (EF Core,   │     │    │  │ (EF Core,   │       │
-│  │  Repository)│     │    │  │  HttpClient)│       │
+│  │  Kafka      │     │    │  │  Kafka      │       │
+│  │  Publisher) │     │    │  │  Consumer)  │       │
 │  └─────────────┘     │    │  └─────────────┘       │
-└──────────────────────┘    └──────────────────────────┘
+└──────────┬───────────┘    └──────────┬───────────────┘
+           │    publica evento          │ consome evento
+           │                           │
+           └──────────┬────────────────┘
+                      ▼
+          ┌───────────────────────┐
+          │   Kafka :9092         │
+          │ topic:                │
+          │ proposta-status-      │
+          │ atualizada            │
+          └───────────────────────┘
                │                          │
                └─────────┬────────────────┘
                          ▼
@@ -50,8 +61,26 @@ Sistema de gerenciamento de propostas de seguro com dois microserviços em **Arq
 
 - **Domain**: Entidades, Enums, Portas (interfaces) — sem dependências externas.
 - **Application**: Use Cases que orquestram a lógica de negócio.
-- **Infrastructure**: Implementação das portas (EF Core, Repository, HttpClient).
+- **Infrastructure**: Implementação das portas (EF Core, Repository, Kafka Publisher/Consumer).
 - **API**: Controllers que expõem as portas primárias (Driving Adapters).
+
+---
+
+## Como o Kafka funciona aqui
+
+Kafka é um sistema de mensagens: um serviço publica uma mensagem e outro serviço lê essa mensagem de forma independente, sem precisar se comunicar diretamente.
+
+Neste projeto o fluxo é:
+
+```text
+1. PropostaService aprova uma proposta
+2. PropostaService publica uma mensagem no Kafka com o novo status
+3. ContratacaoService está rodando em background escutando essas mensagens
+4. Quando recebe a mensagem, salva o status no próprio banco de dados (cache local)
+5. Quando chega uma requisição de contratação, consulta esse cache local
+```
+
+Isso significa que os dois serviços não precisam se chamar diretamente — o Kafka faz a ponte entre eles.
 
 ---
 
@@ -59,6 +88,7 @@ Sistema de gerenciamento de propostas de seguro com dois microserviços em **Arq
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
 - PostgreSQL 16
+- Kafka (incluído no `docker-compose.yml`)
 - Uma das opções abaixo para container local:
   - [Docker + Docker Compose](https://www.docker.com/), se disponível
   - [Podman](https://podman.io/), alternativa compatível para ambientes onde Docker não é permitido
@@ -77,11 +107,12 @@ docker compose up --build
 
 Isso sobe:
 
+- Kafka na porta `9092`
 - PostgreSQL na porta `5432`
 - PropostaService em `http://localhost:5001`
 - ContratacaoService em `http://localhost:5002`
 
-As migrations são aplicadas automaticamente na inicialização, caso a aplicação esteja configurada para isso.
+As migrations são aplicadas automaticamente na inicialização. O ContratacaoService aguarda o Kafka estar pronto antes de iniciar.
 
 ---
 
@@ -237,7 +268,9 @@ Depois feche e abra o terminal novamente.
 
 ## Executar localmente sem Docker Compose
 
-Com o PostgreSQL já rodando via Docker ou Podman, suba os dois serviços em terminais separados.
+Com o PostgreSQL e o Kafka já rodando, suba os dois serviços em terminais separados.
+
+> Para Kafka local sem Docker Compose, a forma mais simples é usar o [Kafka via download oficial](https://kafka.apache.org/downloads) ou manter o Kafka no Docker Compose e rodar apenas os serviços .NET no terminal.
 
 ### Terminal 1 — PropostaService
 
@@ -467,18 +500,65 @@ Rejeitada
 ```text
 1. POST /propostas              → cria proposta com status EmAnalise
 2. PATCH /propostas/{id}/status → aprova a proposta
-3. POST /contratacoes           → contrata a proposta aprovada
+                                  (PropostaService publica evento no Kafka)
+3. aguardar ~1 segundo          → ContratacaoService lê o evento e salva o status
+4. POST /contratacoes           → contrata a proposta aprovada
 ```
 
-Regra principal:
+Regras principais:
 
 ```text
-Apenas propostas com status Aprovada podem ser contratadas.
+- Apenas propostas com status Aprovada podem ser contratadas.
+- O ContratacaoService não consulta o PropostaService diretamente.
+  Ele usa o status que recebeu via Kafka e guardou no próprio banco.
+- Se tentar contratar imediatamente após aprovar (sem aguardar),
+  pode receber "Proposta não encontrada ou ainda não processada"
+  porque o evento do Kafka ainda não chegou.
 ```
 
 ---
 
 ## Troubleshooting
+
+### ContratacaoService diz "Proposta não encontrada ou ainda não processada"
+
+Isso acontece quando a contratação é feita antes do evento Kafka chegar.
+
+O fluxo correto é:
+1. Aprovar a proposta no PropostaService
+2. Aguardar cerca de 1 segundo
+3. Tentar contratar
+
+Se o erro persistir mesmo após aguardar, verifique se o Kafka está rodando:
+
+```powershell
+docker compose ps
+```
+
+O serviço `kafka` deve aparecer com status `healthy`.
+
+---
+
+### ContratacaoService não conecta no Kafka
+
+Erro nos logs:
+```text
+Broker: Unknown topic or partition
+```
+ou
+```text
+Failed to resolve 'kafka:9092'
+```
+
+Isso ocorre se o ContratacaoService subiu antes do Kafka estar pronto.
+
+Solução:
+
+```bash
+docker compose restart contratacao-service
+```
+
+---
 
 ### `docker` não é reconhecido
 
@@ -622,6 +702,7 @@ Nesse caso, ajuste a connection string:
 
 ## Checklist para validar a aplicação
 
+- [ ] Kafka rodando na porta `9092`.
 - [ ] PostgreSQL rodando localmente.
 - [ ] `dotnet restore` executado com sucesso.
 - [ ] `dotnet build` executado com sucesso.
@@ -632,6 +713,7 @@ Nesse caso, ajuste a connection string:
 - [ ] Fluxo manual validado:
   - [ ] Criar proposta
   - [ ] Aprovar proposta
+  - [ ] Aguardar ~1 segundo (propagação do Kafka)
   - [ ] Contratar proposta aprovada
 
 ---
@@ -641,5 +723,6 @@ Nesse caso, ajuste a connection string:
 - **Runtime**: .NET 10 / ASP.NET Core
 - **ORM**: Entity Framework Core 10 + Npgsql
 - **Banco**: PostgreSQL 16
+- **Mensageria**: Apache Kafka 3.7 (Confluent.Kafka)
 - **Testes**: xUnit + Moq
 - **Containers**: Docker, Docker Compose e Podman

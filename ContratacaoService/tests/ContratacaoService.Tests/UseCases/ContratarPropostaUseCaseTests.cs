@@ -9,7 +9,7 @@ namespace ContratacaoService.Tests.UseCases;
 public class ContratarPropostaUseCaseTests
 {
     private readonly Mock<IContratacaoRepository> _repositoryMock = new();
-    private readonly Mock<IPropostaClient> _propostaClientMock = new();
+    private readonly Mock<IPropostaStatusCache> _statusCacheMock = new();
     private readonly ContratarPropostaUseCase _useCase;
     private readonly Guid _propostaId = Guid.NewGuid();
 
@@ -23,14 +23,16 @@ public class ContratarPropostaUseCaseTests
             .Setup(r => r.CriarAsync(It.IsAny<Contratacao>()))
             .ReturnsAsync((Contratacao c) => c);
 
-        _useCase = new ContratarPropostaUseCase(_repositoryMock.Object, _propostaClientMock.Object);
+
+        _useCase = new ContratarPropostaUseCase(_repositoryMock.Object, _statusCacheMock.Object);
     }
 
     [Fact]
     public async Task Deve_contratar_proposta_aprovada()
     {
-        _propostaClientMock
-            .Setup(c => c.ObterStatusPropostaAsync(_propostaId))
+
+        _statusCacheMock
+            .Setup(c => c.ObterStatusAsync(_propostaId))
             .ReturnsAsync("Aprovada");
 
         var result = await _useCase.ExecutarAsync(new ContratarRequest(_propostaId));
@@ -42,8 +44,9 @@ public class ContratarPropostaUseCaseTests
     [Fact]
     public async Task Deve_lancar_excecao_quando_proposta_nao_aprovada()
     {
-        _propostaClientMock
-            .Setup(c => c.ObterStatusPropostaAsync(_propostaId))
+
+        _statusCacheMock
+            .Setup(c => c.ObterStatusAsync(_propostaId))
             .ReturnsAsync("EmAnalise");
 
         await Assert.ThrowsAsync<InvalidOperationException>(
@@ -53,8 +56,8 @@ public class ContratarPropostaUseCaseTests
     [Fact]
     public async Task Deve_lancar_excecao_quando_proposta_nao_encontrada()
     {
-        _propostaClientMock
-            .Setup(c => c.ObterStatusPropostaAsync(_propostaId))
+        _statusCacheMock
+            .Setup(c => c.ObterStatusAsync(_propostaId))
             .ReturnsAsync((string?)null);
 
         await Assert.ThrowsAsync<KeyNotFoundException>(
@@ -66,11 +69,16 @@ public class ContratarPropostaUseCaseTests
     {
         _repositoryMock
             .Setup(r => r.ObterPorPropostaIdAsync(_propostaId))
-            .ReturnsAsync(Contratacao.Criar(_propostaId));
+            .ReturnsAsync(new Contratacao(_propostaId));
 
-        _propostaClientMock
-            .Setup(c => c.ObterStatusPropostaAsync(_propostaId))
+
+
+
+        _statusCacheMock
+            .Setup(c => c.ObterStatusAsync(_propostaId))
             .ReturnsAsync("Aprovada");
+
+
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => _useCase.ExecutarAsync(new ContratarRequest(_propostaId)));

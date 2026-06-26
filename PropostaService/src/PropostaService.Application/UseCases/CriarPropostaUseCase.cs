@@ -8,7 +8,7 @@ public class CriarPropostaUseCase(IPropostaRepository repository)
 {
     public async Task<PropostaResponse> ExecutarAsync(CriarPropostaRequest request)
     {
-        var proposta = Proposta.Criar(request.NomeProponente, request.Cpf, request.ValorCoberto);
+        var proposta = new Proposta(request.NomeProponente, request.Cpf, request.ValorCoberto);
         await repository.CriarAsync(proposta);
         return PropostaResponse.FromProposta(proposta);
     }

@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using PropostaService.Application.Ports;
 using PropostaService.Application.UseCases;
 using PropostaService.Domain.Ports;
+using PropostaService.Infrastructure.Messaging;
 using PropostaService.Infrastructure.Persistence;
 using PropostaService.Infrastructure.Repositories;
 
@@ -16,6 +18,11 @@ public static class DependencyInjection
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection")));
 
         services.AddScoped<IPropostaRepository, PropostaRepository>();
+
+
+
+        services.AddSingleton<IEventPublisher, KafkaEventPublisher>();
+
 
         services.AddScoped<CriarPropostaUseCase>();
         services.AddScoped<ListarPropostasUseCase>();
