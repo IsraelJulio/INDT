@@ -3,59 +3,7 @@
 Sistema de gerenciamento de propostas de seguro com dois microserviços em **Arquitetura Hexagonal** e comunicação assíncrona via **Kafka**.
 
 ## Arquitetura
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│                        Cliente HTTP                         │
-└──────────────┬──────────────────────────┬───────────────────┘
-               │                          │
-               ▼                          ▼
-┌──────────────────────┐    ┌──────────────────────────┐
-│   PropostaService    │    │   ContratacaoService     │
-│   :5001              │    │   :5002                  │
-│                      │    │                          │
-│  ┌─────────────┐     │    │  ┌─────────────┐        │
-│  │ API Layer   │     │    │  │ API Layer   │        │
-│  │ (Controllers│     │    │  │ (Controllers│        │
-│  └──────┬──────┘     │    │  └──────┬──────┘        │
-│         │            │    │         │               │
-│  ┌──────▼──────┐     │    │  ┌──────▼──────┐       │
-│  │ Application │     │    │  │ Application │       │
-│  │ (Use Cases) │     │    │  │ (Use Cases) │       │
-│  └──────┬──────┘     │    │  └──────┬──────┘       │
-│         │            │    │         │               │
-│  ┌──────▼──────┐     │    │  ┌──────▼──────┐       │
-│  │   Domain    │     │    │  │   Domain    │       │
-│  │ (Entities,  │     │    │  │ (Entities,  │       │
-│  │  Ports)     │     │    │  │  Ports)     │       │
-│  └──────┬──────┘     │    │  └──────┬──────┘       │
-│         │            │    │         │               │
-│  ┌──────▼──────┐     │    │  ┌──────▼──────┐       │
-│  │ Infra       │     │    │  │ Infra       │       │
-│  │ (EF Core,   │     │    │  │ (EF Core,   │       │
-│  │  Kafka      │     │    │  │  Kafka      │       │
-│  │  Publisher) │     │    │  │  Consumer)  │       │
-│  └─────────────┘     │    │  └─────────────┘       │
-└──────────┬───────────┘    └──────────┬───────────────┘
-           │    publica evento          │ consome evento
-           │                           │
-           └──────────┬────────────────┘
-                      ▼
-          ┌───────────────────────┐
-          │   Kafka :9092         │
-          │ topic:                │
-          │ proposta-status-      │
-          │ atualizada            │
-          └───────────────────────┘
-               │                          │
-               └─────────┬────────────────┘
-                         ▼
-               ┌──────────────────┐
-               │   PostgreSQL     │
-               │ PropostaDb       │
-               │ ContratacaoDb    │
-               └──────────────────┘
-```
+<img width="1448" height="1086" alt="diagram" src="https://github.com/user-attachments/assets/41d9c868-16a5-4c12-93e1-9c070e5be626" />
 
 ### Camadas (Hexagonal)
 
@@ -93,7 +41,7 @@ Isso significa que os dois serviços não precisam se chamar diretamente — o K
   - [Docker + Docker Compose](https://www.docker.com/), se disponível
   - [Podman](https://podman.io/), alternativa compatível para ambientes onde Docker não é permitido
 
-> Em ambientes corporativos, Docker pode ser bloqueado. Nesse caso, use a seção **Executar localmente com Podman**.
+> Em ambientes corporativos, Docker pode ser bloqueado. Nesse caso, use a seção **Executar localmente com Podman** (minha alternativa).
 
 ---
 
@@ -210,7 +158,7 @@ podman rm -f postgres-dev
 
 ## Connection string local
 
-Para rodar a aplicação localmente usando o PostgreSQL exposto na porta `5432`:
+Para rodar a aplicação localmente usando o PostgreSQL exposto na porta `5432`: (confira usuario e senha do postegres)
 
 ```json
 {
@@ -322,24 +270,10 @@ dotnet test
 
 ## Testar a API
 
-É possível testar de três formas:
+É possível testar de 2 formas:
 
-1. Swagger, se habilitado
-2. Postman/Insomnia
-3. Terminal/PowerShell
-
-### Swagger
-
-Com os serviços rodando, acesse:
-
-```text
-http://localhost:5001/swagger
-http://localhost:5002/swagger
-```
-
-Se a página abrir, use o botão **Try it out** para executar os endpoints.
-
-Se retornar `404`, o Swagger provavelmente não está habilitado no projeto. Nesse caso, use Postman/Insomnia ou PowerShell.
+1. Postman/Insomnia
+2. Terminal/PowerShell
 
 ### Postman ou Insomnia
 
@@ -361,6 +295,7 @@ Body:
   "valorCoberto": 50000.0
 }
 ```
+<img width="1080" height="516" alt="image" src="https://github.com/user-attachments/assets/a6379fc1-32fe-459f-95cd-af64b5bb766f" />
 
 #### Aprovar proposta
 
@@ -376,6 +311,7 @@ Body:
   "status": "Aprovada"
 }
 ```
+<img width="1074" height="484" alt="image" src="https://github.com/user-attachments/assets/ba3faabc-fa9a-496a-8842-f106519d39f7" />
 
 #### Contratar proposta
 
@@ -391,6 +327,7 @@ Body:
   "propostaId": "guid-da-proposta"
 }
 ```
+<img width="780" height="293" alt="image" src="https://github.com/user-attachments/assets/6a2ffbd7-790d-480b-be81-1b60faa538cb" />
 
 ### PowerShell
 
@@ -699,6 +636,13 @@ Nesse caso, ajuste a connection string:
 ```
 
 ---
+
+Exemplo da aplicalção rodando em um Front local:
+
+<img width="1294" height="924" alt="Gravando 2026-06-26 160114" src="https://github.com/user-attachments/assets/fc231dea-2afc-44ec-882d-9d4b513d978a" />
+
+
+
 
 ## Checklist para validar a aplicação
 
