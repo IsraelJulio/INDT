@@ -128,7 +128,44 @@ NAMES          STATUS        PORTS
 postgres-dev   Up            0.0.0.0:5432->5432/tcp
 ```
 
-### 4. Comandos úteis do Podman
+### 4. Baixar e subir o Kafka
+
+> A imagem `bitnami/kafka` não está disponível no Docker Hub. Use a imagem oficial `apache/kafka`.
+
+```powershell
+podman pull --tls-verify=false docker.io/apache/kafka:3.7.0
+```
+
+```powershell
+podman run `
+  --name kafka-dev `
+  -e KAFKA_NODE_ID=1 `
+  -e KAFKA_PROCESS_ROLES=broker,controller `
+  -e KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093 `
+  -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092 `
+  -e KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER `
+  -e KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT `
+  -e KAFKA_CONTROLLER_QUORUM_VOTERS=1@localhost:9093 `
+  -e KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1 `
+  -p 9092:9092 `
+  -d apache/kafka:3.7.0
+```
+
+Confirme se ambos os containers estão rodando:
+
+```powershell
+podman ps
+```
+
+Resultado esperado:
+
+```text
+NAMES          STATUS        PORTS
+postgres-dev   Up            0.0.0.0:5432->5432/tcp
+kafka-dev      Up            0.0.0.0:9092->9092/tcp
+```
+
+### 5. Comandos úteis do Podman
 
 Ver logs do banco:
 
@@ -136,22 +173,28 @@ Ver logs do banco:
 podman logs postgres-dev
 ```
 
-Parar o banco:
+Ver logs do Kafka:
 
 ```powershell
-podman stop postgres-dev
+podman logs kafka-dev
+```
+
+Parar os containers:
+
+```powershell
+podman stop postgres-dev kafka-dev
 ```
 
 Iniciar novamente:
 
 ```powershell
-podman start postgres-dev
+podman start postgres-dev kafka-dev
 ```
 
-Remover o container:
+Remover os containers:
 
 ```powershell
-podman rm -f postgres-dev
+podman rm -f postgres-dev kafka-dev
 ```
 
 ---
@@ -216,9 +259,7 @@ Depois feche e abra o terminal novamente.
 
 ## Executar localmente sem Docker Compose
 
-Com o PostgreSQL e o Kafka já rodando, suba os dois serviços em terminais separados.
-
-> Para Kafka local sem Docker Compose, a forma mais simples é usar o [Kafka via download oficial](https://kafka.apache.org/downloads) ou manter o Kafka no Docker Compose e rodar apenas os serviços .NET no terminal.
+Com o PostgreSQL e o Kafka já rodando (conforme a seção **Executar localmente com Podman**), suba os dois serviços em terminais separados.
 
 ### Terminal 1 — PropostaService
 
@@ -476,6 +517,24 @@ O serviço `kafka` deve aparecer com status `healthy`.
 
 ---
 
+### Imagem `bitnami/kafka` não encontrada
+
+Erro:
+
+```text
+manifest unknown
+```
+
+A imagem `bitnami/kafka` foi removida do Docker Hub. Use a imagem oficial:
+
+```powershell
+podman pull --tls-verify=false docker.io/apache/kafka:3.7.0
+```
+
+As variáveis de ambiente para `apache/kafka` são diferentes das do bitnami — use o comando da seção **4. Baixar e subir o Kafka**.
+
+---
+
 ### ContratacaoService não conecta no Kafka
 
 Erro nos logs:
@@ -484,12 +543,12 @@ Broker: Unknown topic or partition
 ```
 ou
 ```text
-Failed to resolve 'kafka:9092'
+Connect to 127.0.0.1:9092 failed
 ```
 
-Isso ocorre se o ContratacaoService subiu antes do Kafka estar pronto.
+Isso ocorre se o ContratacaoService subiu antes do Kafka estar pronto. Aguarde ~10 segundos após subir o Kafka e reinicie o serviço com `Ctrl+C` e `dotnet run` novamente.
 
-Solução:
+Se estiver usando Docker Compose:
 
 ```bash
 docker compose restart contratacao-service
