@@ -1,4 +1,4 @@
-# Plataforma de Seguros — Teste Técnico INDT
+# Plataforma de Seguros 
 
 Sistema de gerenciamento de propostas de seguro com dois microserviços em **Arquitetura Hexagonal** e comunicação assíncrona via **Kafka**.
 
